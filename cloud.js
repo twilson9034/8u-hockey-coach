@@ -173,7 +173,7 @@ const HockeyCloud=(()=>{
  }
  function draftFor(event){
   const key=event.uid||event.start+'|'+event.title;
-  if(!gameDrafts[key]){const first=String(event.title||'').match(/\\bvs\\.?\\s+(.+)$/i);gameDrafts[key]={opponents:[first?first[1].trim():'','',''],interval:20,rink:['','','']};}
+  if(!gameDrafts[key]){const first=String(event.title||'').match(/\bvs\.?\s+(.+)$/i);gameDrafts[key]={opponents:[first?first[1].trim():'','',''],interval:20,rink:['','','']};}
   return {key,draft:gameDrafts[key]};
  }
  function changeDraft(key,field,index,value){
@@ -188,10 +188,17 @@ const HockeyCloud=(()=>{
   const event=calendarEvents.find(x=>(x.uid||x.start+'|'+x.title)===key),draft=gameDrafts[key];
   if(!event||!draft)return alert('Calendar event not found. Refresh the feed.');
   if(draft.opponents.some(x=>!x))return alert('Choose all three opponents before saving.');
-  const start=String(event.start||'');
-  const m=start.match(/^(\\d{4})(\\d{2})(\\d{2})T(\\d{2})(\\d{2})(\\d{2})?(Z)?$/);
-  if(!m||!m[7])return alert('This event has no UTC timestamp. Please verify its timezone before saving.');
-  const iso=m[1]+'-'+m[2]+'-'+m[3]+'T'+m[4]+':'+m[5]+':'+(m[6]||'00')+'Z';
+  const start=String(event.start||'').trim();
+  let iso='';
+  const basic=start.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?(Z)?$/);
+  if(basic){
+   iso=basic[1]+'-'+basic[2]+'-'+basic[3]+'T'+basic[4]+':'+basic[5]+':'+(basic[6]||'00')+(basic[7]?'Z':'');
+  }else if(/^\d{4}-\d{2}-\d{2}T/.test(start)){
+   iso=start;
+  }
+  if(!iso||!Number.isFinite(Date.parse(iso)))return alert('Calendar start time could not be interpreted. Original value: '+start);
+  if(!/(Z|[+-]\d{2}:?\d{2})$/i.test(iso))return alert('Calendar time has no timezone. Original value: '+start);
+  iso=new Date(iso).toISOString();
   if(!confirm('Save these three games to the team workspace? This updates the upcoming Game Day schedule, not generated rotations.'))return;
   const ok=window.hockeyCalendarSave({uid:key,start:iso,location:event.location||'',title:event.title||'',opponents:[...draft.opponents],rinks:[...draft.rink],interval:draft.interval});
   if(ok)say('Three-game schedule saved · see Game Day');
@@ -214,7 +221,7 @@ const HockeyCloud=(()=>{
     card+='<h3>Three-game test lineup</h3><p class="muted">Possible opponents: '+e(opponents.join(', ')||'None detected')+'. Calendar notes do not establish game order.</p>';
     card+='<label>Minutes between game starts <input type="number" min="1" max="120" value="'+draft.interval+'" onchange="HockeyCloud.changeDraft('+keyLiteral+',&#39;interval&#39;,0,this.value)"></label>';
     for(let i=0;i<3;i++){
-     const options=['',...opponents.filter(x=>!draft.opponents.includes(x)||x===draft.opponents[i])];
+     const options=['',...opponents.filter(x=>!draft.opponents.includes(x)||x===draft.opponents[i])];if(draft.opponents[i]&&!options.includes(draft.opponents[i]))options.push(draft.opponents[i]);
      card+='<div class="row"><label>Game '+(i+1)+' opponent <select onchange="HockeyCloud.changeDraft('+keyLiteral+',&#39;opponents&#39;,'+i+',this.value)">'+options.map(v=>'<option value="'+e(v)+'" '+(draft.opponents[i]===v?'selected':'')+'>'+(v?e(v):'Select opponent')+'</option>').join('')+'</select></label>';
      card+='<label>Rink <input placeholder="Rink / ice section" value="'+e(draft.rink[i])+'" onchange="HockeyCloud.changeDraft('+keyLiteral+',&#39;rink&#39;,'+i+',this.value)"></label></div>';
     }
