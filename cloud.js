@@ -206,7 +206,7 @@ const HockeyCloud=(()=>{
    out+='<button onclick="HockeyCloud.toggleCalendarAll()">'+(calendarShowAll?'Show team matches':'Show all events')+'</button>';
    out+=selected.slice(0,35).map(event=>{
     const practice=/practice/i.test(event.title||''),opponents=candidateOpponents(event);
-    const {key,draft}=draftFor(event),keyLiteral=JSON.stringify(key).replace(/"/g,'&quot;');
+    const {key,draft}=draftFor(event),keyLiteral='decodeURIComponent(&#39;'+encodeURIComponent(key)+'&#39;)';
     let card='<details class="card"><summary><strong>'+e(event.title||'Untitled event')+'</strong><div class="muted">'+e(displayCalendarDate(event.start))+'</div></summary><p>Location: '+e(event.location||'Not specified')+'</p>';
     card+='<p class="muted">Status: '+e(event.status||'Not specified')+'</p>';
     card+='<strong>Original Crossbar notes</strong><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">'+e(event.notes||'(No notes provided)')+'</pre>';
