@@ -299,13 +299,13 @@ const HockeyCloud=(()=>{
  function brandingPanel(){
   if(!team)return '';
   const b=window.hockeyBrandGet?.()||{},disabled=!permitted('settings');
-  let html='<section class="card"><h2>Team branding</h2><p class="muted">Team colors and logo synchronize across coaches.</p><div class="row">';
+  let html='<section class="card"><h2>Team branding</h2><p class="muted">Team colors and logo synchronize across coaches.</p><div class="branding-colors">';
   for(const [key,label,value] of [['brandPrimary','Header',b.primary],['brandSecondary','Buttons',b.secondary],['brandAccent','Highlights',b.accent]]){
    html+='<label>'+label+' <input type="color" value="'+e(value||'#15374d')+'" '+(disabled?'disabled':'')+' onchange="HockeyCloud.setBrandColor(&#39;'+key+'&#39;,this.value)"></label>';
   }
-  html+='</div><div style="background:'+e(b.primary||'#15374d')+';color:white;padding:12px;border-radius:9px"><strong>'+e(team.name)+'</strong> <span style="background:'+e(b.secondary||'#087c97')+';padding:5px 9px;border-radius:6px">Sample button</span></div>';
+  html+='</div><div class="branding-preview" style="background:'+e(b.primary||'#15374d')+';color:white;padding:12px;border-radius:9px;margin-top:12px"><strong>'+e(team.name)+'</strong> <span style="background:'+e(b.secondary||'#087c97')+';color:white;padding:5px 9px;border-radius:6px">Sample button</span><span style="background:'+e(b.accent||'#dcebf1')+';color:#17364a;padding:5px 9px;border-radius:6px">Highlight</span></div>';
   html+='<p>Team logo '+(b.logo?'<img alt="Team logo preview" src="'+e(b.logo)+'" style="width:64px;height:64px;object-fit:contain;vertical-align:middle">':'(not uploaded)')+'</p>';
-  html+='<input type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" '+(disabled?'disabled':'')+' onchange="HockeyCloud.uploadBrandLogo(this.files[0])"><p id="logo-upload-status" class="muted" aria-live="polite"></p><button '+(disabled?'disabled':'')+' onclick="HockeyCloud.resetBrand()">Reset branding</button></section>';
+  html+='<input class="branding-logo-input" type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" '+(disabled?'disabled':'')+' onchange="HockeyCloud.uploadBrandLogo(this.files[0])"><p id="logo-upload-status" class="muted" aria-live="polite"></p><button '+(disabled?'disabled':'')+' onclick="HockeyCloud.resetBrand()">Reset branding</button></section>';
   return html;
  }
  function setBrandColor(key,value){window.hockeyBrandSet?.(key,value)}
