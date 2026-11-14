@@ -139,6 +139,33 @@ const HockeyCloud=(()=>{
   if(error)return alert(error.message);
   team.assistant_permissions=perms;render();
  }
+ let calendarEvents=[],calendarError='',calendarBusy=false,calendarShowAll=false;
+ async function previewCalendar(){
+  if(!client||!team)return alert('Select a team first.');
+  calendarBusy=true;calendarError='';render();
+  try{
+   const {data,error}=await client.functions.invoke('crossbar-preview',{body:{teamId:team.id}});
+   if(error)throw Error(data?.error||error.message);
+   if(data?.error)throw Error(data.error);
+   calendarEvents=Array.isArray(data.events)?data.events:[];calendarShowAll=false;
+   say('Crossbar feed loaded: '+calendarEvents.length+' events (preview only)');
+  }catch(err){calendarError=String(err.message||err);say('Calendar preview unavailable')}
+  calendarBusy=false;render();
+ }
+ function toggleCalendarAll(){calendarShowAll=!calendarShowAll;render()}
+ function calendarPanel(){
+  let out='<section class="card"><h2>Crossbar calendar · test preview</h2><p class="muted">Read-only test. Shows the original event title and full notes so we can check how all three games are listed. No game data is changed.</p><button onclick="HockeyCloud.previewCalendar()" '+(calendarBusy?'disabled':'')+'>'+(calendarBusy?'Loading calendar…':'Fetch Crossbar schedule')+'</button>';
+  if(calendarError)out+='<p class="muted">'+e(calendarError)+'</p>';
+  if(calendarEvents.length){
+   const relevant=calendarEvents.filter(x=>[x.title,x.notes].join(' ').toLowerCase().includes(team.name.toLowerCase()));
+   const selected=calendarShowAll?calendarEvents:(relevant.length?relevant:calendarEvents);
+   out+='<p class="muted">'+calendarEvents.length+' events returned · '+relevant.length+' mention '+e(team.name)+'. '+(relevant.length?'Showing team mentions first.':'Showing all events.')+'</p>';
+   out+='<button onclick="HockeyCloud.toggleCalendarAll()">'+(calendarShowAll?'Show team matches':'Show all events')+'</button>';
+   out+=selected.slice(0,35).map(x=>'<details class="card"><summary><strong>'+e(x.title||'Untitled event')+'</strong> · '+e(x.start||'Date unavailable')+'</summary><p>Location: '+e(x.location||'Not specified')+'</p><p class="muted">Status: '+e(x.status||'Not specified')+'</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">'+e(x.notes||'(No notes provided by feed)')+'</pre></details>').join('');
+   if(selected.length>35)out+='<p class="muted">Showing first 35 of '+selected.length+' events.</p>';
+  }
+  return out+'</section>';
+ }
  function panel(){
   let html='<section class="card"><h2>Cloud & teams</h2><p id="cloud-status" class="muted">'+e(status)+'</p>';
   if(!ready)return html+'<p>Connecting to Supabase… Local features still work.</p></section>';
@@ -152,11 +179,11 @@ const HockeyCloud=(()=>{
    }
    if(paused)html+='<p class="muted">Sync paused. Export a backup before resolving conflicts.</p><button onclick="HockeyCloud.retry()">Retry sync</button>';
   }
-  return html+'</section>';
+  return html+'</section>'+(team?calendarPanel():'');
  }
  function canEdit(section){return !team||(!!base&&permitted(section))}
  function retry(){paused=false;drain()}
  window.addEventListener('online',()=>drain());
- return {init,onSave,canEdit,panel,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,initializeTeam,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
+ return {init,onSave,canEdit,panel,previewCalendar,toggleCalendarAll,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,initializeTeam,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
 })();
 window.HockeyCloud=HockeyCloud;
