@@ -173,7 +173,7 @@ const HockeyCloud=(()=>{
  }
  function draftFor(event){
   const key=event.uid||event.start+'|'+event.title;
-  if(!gameDrafts[key])gameDrafts[key]={opponents:['','',''],interval:20,rink:['','','']};
+  if(!gameDrafts[key]){const first=String(event.title||'').match(/\\bvs\\.?\\s+(.+)$/i);gameDrafts[key]={opponents:[first?first[1].trim():'','',''],interval:20,rink:['','','']};}
   return {key,draft:gameDrafts[key]};
  }
  function changeDraft(key,field,index,value){
@@ -183,6 +183,18 @@ const HockeyCloud=(()=>{
   const opened=Array.from(document.querySelectorAll('#app details')).map((el,i)=>el.open?i:-1).filter(i=>i>=0);
   render();
   const items=document.querySelectorAll('#app details');opened.forEach(i=>{if(items[i])items[i].open=true});
+ }
+ function saveCalendarDraft(key){
+  const event=calendarEvents.find(x=>(x.uid||x.start+'|'+x.title)===key),draft=gameDrafts[key];
+  if(!event||!draft)return alert('Calendar event not found. Refresh the feed.');
+  if(draft.opponents.some(x=>!x))return alert('Choose all three opponents before saving.');
+  const start=String(event.start||'');
+  const m=start.match(/^(\\d{4})(\\d{2})(\\d{2})T(\\d{2})(\\d{2})(\\d{2})?(Z)?$/);
+  if(!m||!m[7])return alert('This event has no UTC timestamp. Please verify its timezone before saving.');
+  const iso=m[1]+'-'+m[2]+'-'+m[3]+'T'+m[4]+':'+m[5]+':'+(m[6]||'00')+'Z';
+  if(!confirm('Save these three games to the team workspace? This updates the upcoming Game Day schedule, not generated rotations.'))return;
+  const ok=window.hockeyCalendarSave({uid:key,start:iso,location:event.location||'',title:event.title||'',opponents:[...draft.opponents],rinks:[...draft.rink],interval:draft.interval});
+  if(ok)say('Three-game schedule saved · see Game Day');
  }
  function calendarPanel(){
   let out='<section class="card"><h2>Crossbar calendar · test preview</h2><p class="muted">Read-only test. Dates use Alaska time when Crossbar supplies UTC. Choose opponents and rink assignments to preview three games; nothing is saved to Game Day.</p><button onclick="HockeyCloud.previewCalendar()" '+(calendarBusy?'disabled':'')+'>'+(calendarBusy?'Loading calendar…':'Refresh Crossbar schedule')+'</button>';
@@ -209,7 +221,7 @@ const HockeyCloud=(()=>{
     const complete=draft.opponents.every(Boolean);
     card+='<p><strong>Proposed lineup (not saved)</strong></p>';
     for(let i=0;i<3;i++)card+='<p>Game '+(i+1)+': '+e(draft.opponents[i]||'Opponent not selected')+' · '+(i===0?'Event start':('+'+i*draft.interval+' min'))+(draft.rink[i]?' · '+e(draft.rink[i]):'')+'</p>';
-    card+='<p class="muted">'+(complete?'All three opponents selected.':'Select all three opponents to complete the preview.')+' This is only a test; it does not change the team schedule.</p></details>';
+    card+='<p class="muted">'+(complete?'All three opponents selected.':'Select all three opponents to complete the preview.')+'</p><button class="primary" '+(!complete||!permitted('settings')?'disabled':'')+' onclick="HockeyCloud.saveCalendarDraft('+keyLiteral+')">Save to team Game Day</button></details>';
     return card;
    }).join('');
    if(selected.length>35)out+='<p class="muted">Showing first 35 of '+selected.length+' events.</p>';
@@ -234,6 +246,6 @@ const HockeyCloud=(()=>{
  function canEdit(section){return !team||(!!base&&permitted(section))}
  function retry(){paused=false;drain()}
  window.addEventListener('online',()=>drain());
- return {init,onSave,canEdit,panel,previewCalendar,toggleCalendarAll,changeDraft,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,initializeTeam,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
+ return {init,onSave,canEdit,panel,previewCalendar,toggleCalendarAll,changeDraft,saveCalendarDraft,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,initializeTeam,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
 })();
 window.HockeyCloud=HockeyCloud;
