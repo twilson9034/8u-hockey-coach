@@ -180,7 +180,9 @@ const HockeyCloud=(()=>{
   if(!gameDrafts[key])return;
   if(field==='interval')gameDrafts[key].interval=Math.max(1,Math.min(120,Number(value)||20));
   else gameDrafts[key][field][index]=value;
+  const opened=Array.from(document.querySelectorAll('#app details')).map((el,i)=>el.open?i:-1).filter(i=>i>=0);
   render();
+  const items=document.querySelectorAll('#app details');opened.forEach(i=>{if(items[i])items[i].open=true});
  }
  function calendarPanel(){
   let out='<section class="card"><h2>Crossbar calendar · test preview</h2><p class="muted">Read-only test. Dates use Alaska time when Crossbar supplies UTC. Choose opponents and rink assignments to preview three games; nothing is saved to Game Day.</p><button onclick="HockeyCloud.previewCalendar()" '+(calendarBusy?'disabled':'')+'>'+(calendarBusy?'Loading calendar…':'Refresh Crossbar schedule')+'</button>';
