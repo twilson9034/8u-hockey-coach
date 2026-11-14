@@ -53,11 +53,21 @@ const HockeyCloud=(()=>{
    if(!team)say(user?'Signed in · select a team':'Local only · sign in to sync');
   }catch(err){say('Cloud unavailable · local mode works offline')}
  }
+ let pendingEmail='';
  async function signIn(){
   if(!client)return alert('Cloud is still loading. Try again when online.');
-  const email=prompt('Email address for your sign-in link:');if(!email)return;
-  const {error}=await client.auth.signInWithOtp({email:email.trim(),options:{emailRedirectTo:location.origin+location.pathname}});
-  alert(error?'Sign-in error: '+error.message:'Check your email for a sign-in link. Open it on this device.');
+  const email=prompt('Email for a six-digit sign-in code:',pendingEmail);if(!email)return;
+  pendingEmail=email.trim();
+  const {error}=await client.auth.signInWithOtp({email:pendingEmail});
+  if(error)return alert('Sign-in error: '+error.message);
+  say('Code sent · enter it below');render();
+ }
+ async function verifyCode(){
+  if(!client||!pendingEmail)return alert('Request a code first.');
+  const token=prompt('Six-digit code sent to '+pendingEmail+':');if(!token)return;
+  const {error}=await client.auth.verifyOtp({email:pendingEmail,token:token.trim(),type:'email'});
+  if(error)return alert('Verification failed: '+error.message);
+  pendingEmail='';await listTeams();say('Signed in · select or create a team');render();
  }
  async function signOut(){if(!client)return;if(pending.length&&!confirm('Unsynced changes remain on this device. Sign out anyway?'))return;await client.auth.signOut();localStorage.removeItem('hockey-coach-last-team');team=null;pending=[];base=null;window.hockeyCloudSetData(null,null);say('Signed out · local only');render()}
  async function createTeam(){
@@ -124,7 +134,7 @@ const HockeyCloud=(()=>{
  function panel(){
   let html='<section class="card"><h2>Cloud & teams</h2><p id="cloud-status" class="muted">'+e(status)+'</p>';
   if(!ready)return html+'<p>Connecting to Supabase… Local features still work.</p></section>';
-  if(!user)return html+'<p>Local data stays on this device until a team administrator imports it.</p><button onclick="HockeyCloud.signIn()">Sign in with email</button></section>';
+  if(!user)return html+'<p>Local data stays on this device until a team administrator imports it.</p><button onclick="HockeyCloud.signIn()">Send email sign-in code</button>'+(pendingEmail?'<div class="row"><button class="primary" onclick="HockeyCloud.verifyCode()">Enter verification code</button></div><p class="muted">Code sent to '+e(pendingEmail)+'</p>':'')+'</section>';
   html+='<p>Signed in: '+e(user.email)+'</p><div class="row"><button onclick="HockeyCloud.createTeam()">Create team</button><button onclick="HockeyCloud.acceptInvite()">Join via invitation</button><button onclick="HockeyCloud.signOut()">Sign out</button></div><label>Workspace <select onchange="HockeyCloud.selectTeam(this.value)"><option value="">Local only</option>'+teams.map(t=>'<option value="'+t.id+'" '+(team?.id===t.id?'selected':'')+'>'+e(t.name)+' ('+e(t.role)+')</option>').join('')+'</select></label>';
   if(team){
    html+='<h3>'+e(team.name)+'</h3><p class="muted">Role: '+e(team.role)+' · '+(base?'Cloud data loaded':'No cloud data imported yet')+'</p>';
@@ -139,6 +149,6 @@ const HockeyCloud=(()=>{
  function canEdit(section){return !team||(!!base&&permitted(section))}
  function retry(){paused=false;drain()}
  window.addEventListener('online',()=>drain());
- return {init,onSave,canEdit,panel,signIn,signOut,createTeam,selectTeam,importLocal,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
+ return {init,onSave,canEdit,panel,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
 })();
 window.HockeyCloud=HockeyCloud;
