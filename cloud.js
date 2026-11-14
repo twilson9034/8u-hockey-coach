@@ -242,7 +242,7 @@ const HockeyCloud=(()=>{
     for(let i=0;i<3;i++){
      const options=['',...opponents.filter(x=>!draft.opponents.includes(x)||x===draft.opponents[i])];if(draft.opponents[i]&&!options.includes(draft.opponents[i]))options.push(draft.opponents[i]);
      card+='<div class="row"><label>Game '+(i+1)+' opponent <select onchange="HockeyCloud.changeDraft('+keyLiteral+',&#39;opponents&#39;,'+i+',this.value)">'+options.map(v=>'<option value="'+e(v)+'" '+(draft.opponents[i]===v?'selected':'')+'>'+(v?e(v):'Select opponent')+'</option>').join('')+'</select></label>';
-     card+='<label>Rink <input placeholder="Rink / ice section" value="'+e(draft.rink[i])+'" onchange="HockeyCloud.changeDraft('+keyLiteral+',&#39;rink&#39;,'+i+',this.value)"></label></div>';
+     card+='<label>Or type opponent <input placeholder="Team name" value="'+e(draft.opponents[i])+'" onchange="HockeyCloud.changeDraft('+keyLiteral+',&#39;opponents&#39;,'+i+',this.value)"></label>';card+='<label>Rink <input placeholder="Rink / ice section" value="'+e(draft.rink[i])+'" onchange="HockeyCloud.changeDraft('+keyLiteral+',&#39;rink&#39;,'+i+',this.value)"></label></div>';
     }
     const complete=draft.opponents.every(Boolean);
     card+='<p><strong>Proposed lineup (not saved)</strong></p>';
