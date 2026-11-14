@@ -49,7 +49,7 @@ const HockeyCloud=(()=>{
    client=mod.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
    client.auth.onAuthStateChange((_event,session)=>{const old=user?.id;user=session?.user||null;if(old!==user?.id){if(!user&&team){team=null;window.hockeyCloudSetData(null,null)}setTimeout(listTeams,0)}});
    const {data}=await client.auth.getUser();user=data?.user||null;ready=true;
-   if(user)await listTeams();
+   if(user){await listTeams();const last=localStorage.getItem('hockey-coach-last-team');if(last&&teams.some(t=>t.id===last))await selectTeam(last)}
    say(user?'Signed in · select a team':'Local only · sign in to sync');
   }catch(err){say('Cloud unavailable · local mode works offline')}
  }
@@ -59,7 +59,7 @@ const HockeyCloud=(()=>{
   const {error}=await client.auth.signInWithOtp({email:email.trim(),options:{emailRedirectTo:location.origin+location.pathname}});
   alert(error?'Sign-in error: '+error.message:'Check your email for a sign-in link. Open it on this device.');
  }
- async function signOut(){if(!client)return;if(pending.length&&!confirm('Unsynced changes remain on this device. Sign out anyway?'))return;await client.auth.signOut();team=null;pending=[];base=null;window.hockeyCloudSetData(null,null);say('Signed out · local only');render()}
+ async function signOut(){if(!client)return;if(pending.length&&!confirm('Unsynced changes remain on this device. Sign out anyway?'))return;await client.auth.signOut();localStorage.removeItem('hockey-coach-last-team');team=null;pending=[];base=null;window.hockeyCloudSetData(null,null);say('Signed out · local only');render()}
  async function createTeam(){
   if(!user)return alert('Sign in first');
   const name=prompt('New team name:');if(!name?.trim())return;
@@ -69,11 +69,11 @@ const HockeyCloud=(()=>{
  }
  async function selectTeam(id){
   if(pending.length&&team?.id!==id)return alert('Sync pending. Stay on this team until changes are synced or export a backup.');
-  if(!id){team=null;base=null;pending=[];window.hockeyCloudSetData(null,null);say('Local only');render();return}
+  if(!id){localStorage.removeItem('hockey-coach-last-team');team=null;base=null;pending=[];window.hockeyCloudSetData(null,null);say('Local only');render();return}
   const selected=teams.find(t=>t.id===id);if(!selected)return alert('Team not available');
   const {data,error}=await client.from('team_data').select('data,version,imported_at').eq('team_id',id).single();
   if(error)return alert(error.message);
-  team=selected;version=Number(data.version);pending=[];paused=false;
+  team=selected;localStorage.setItem('hockey-coach-last-team',id);version=Number(data.version);pending=[];paused=false;
   if(data.imported_at){
    base=clone(data.data);window.hockeyCloudSetData(data.data,id);say('Synced');
   }else{base=null;window.hockeyCloudSetData(null,id);say('Team awaits administrator import')}
