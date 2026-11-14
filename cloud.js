@@ -153,15 +153,63 @@ const HockeyCloud=(()=>{
   calendarBusy=false;render();
  }
  function toggleCalendarAll(){calendarShowAll=!calendarShowAll;render()}
+
+ let gameDrafts={};
+ function displayCalendarDate(raw){
+  const match=String(raw||'').match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?/);
+  if(!match)return raw||'Date unavailable';
+  if(!match[4])return match[1]+'-'+match[2]+'-'+match[3];
+  const iso=match[1]+'-'+match[2]+'-'+match[3]+'T'+match[4]+':'+match[5]+':'+(match[6]||'00')+(match[7]?'Z':'');
+  if(!match[7])return iso.replace('T',' ')+' (calendar timezone unspecified)';
+  const date=new Date(iso);
+  return Number.isNaN(date.valueOf())?raw:new Intl.DateTimeFormat('en-US',{timeZone:'America/Anchorage',weekday:'short',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(date);
+ }
+ function candidateOpponents(event){
+  const title=String(event.title||''),notes=String(event.notes||'');
+  const match=title.match(/\bvs\.?\s+(.+)$/i);
+  const listed=notes.match(/(?:^|\n)\s*w\/\s*([^\n]+)/i);
+  const names=[...(match?[match[1].trim()]:[]),...(listed?listed[1].split(',').map(v=>v.trim()):[])].filter(Boolean);
+  return [...new Map(names.map(n=>[n.toLowerCase(),n])).values()];
+ }
+ function draftFor(event){
+  const key=event.uid||event.start+'|'+event.title;
+  if(!gameDrafts[key])gameDrafts[key]={opponents:['','',''],interval:20,rink:['','','']};
+  return {key,draft:gameDrafts[key]};
+ }
+ function changeDraft(key,field,index,value){
+  if(!gameDrafts[key])return;
+  if(field==='interval')gameDrafts[key].interval=Math.max(1,Math.min(120,Number(value)||20));
+  else gameDrafts[key][field][index]=value;
+  render();
+ }
  function calendarPanel(){
-  let out='<section class="card"><h2>Crossbar calendar · test preview</h2><p class="muted">Read-only test. Shows the original event title and full notes so we can check how all three games are listed. No game data is changed.</p><button onclick="HockeyCloud.previewCalendar()" '+(calendarBusy?'disabled':'')+'>'+(calendarBusy?'Loading calendar…':'Fetch Crossbar schedule')+'</button>';
+  let out='<section class="card"><h2>Crossbar calendar · test preview</h2><p class="muted">Read-only test. Dates use Alaska time when Crossbar supplies UTC. Choose opponents and rink assignments to preview three games; nothing is saved to Game Day.</p><button onclick="HockeyCloud.previewCalendar()" '+(calendarBusy?'disabled':'')+'>'+(calendarBusy?'Loading calendar…':'Refresh Crossbar schedule')+'</button>';
   if(calendarError)out+='<p class="muted">'+e(calendarError)+'</p>';
   if(calendarEvents.length){
    const relevant=calendarEvents.filter(x=>[x.title,x.notes].join(' ').toLowerCase().includes(team.name.toLowerCase()));
    const selected=calendarShowAll?calendarEvents:(relevant.length?relevant:calendarEvents);
-   out+='<p class="muted">'+calendarEvents.length+' events returned · '+relevant.length+' mention '+e(team.name)+'. '+(relevant.length?'Showing team mentions first.':'Showing all events.')+'</p>';
+   out+='<p class="muted">'+calendarEvents.length+' events returned · '+relevant.length+' mention '+e(team.name)+'.</p>';
    out+='<button onclick="HockeyCloud.toggleCalendarAll()">'+(calendarShowAll?'Show team matches':'Show all events')+'</button>';
-   out+=selected.slice(0,35).map(x=>'<details class="card"><summary><strong>'+e(x.title||'Untitled event')+'</strong> · '+e(x.start||'Date unavailable')+'</summary><p>Location: '+e(x.location||'Not specified')+'</p><p class="muted">Status: '+e(x.status||'Not specified')+'</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">'+e(x.notes||'(No notes provided by feed)')+'</pre></details>').join('');
+   out+=selected.slice(0,35).map(event=>{
+    const practice=/practice/i.test(event.title||''),opponents=candidateOpponents(event);
+    const {key,draft}=draftFor(event),keyLiteral=JSON.stringify(key).replace(/"/g,'&quot;');
+    let card='<details class="card"><summary><strong>'+e(event.title||'Untitled event')+'</strong><div class="muted">'+e(displayCalendarDate(event.start))+'</div></summary><p>Location: '+e(event.location||'Not specified')+'</p>';
+    card+='<p class="muted">Status: '+e(event.status||'Not specified')+'</p>';
+    card+='<strong>Original Crossbar notes</strong><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">'+e(event.notes||'(No notes provided)')+'</pre>';
+    if(practice)return card+'<p class="muted">Practice — no game slots proposed.</p></details>';
+    card+='<h3>Three-game test lineup</h3><p class="muted">Possible opponents: '+e(opponents.join(', ')||'None detected')+'. Calendar notes do not establish game order.</p>';
+    card+='<label>Minutes between game starts <input type="number" min="1" max="120" value="'+draft.interval+'" onchange="HockeyCloud.changeDraft('+keyLiteral+',&#39;interval&#39;,0,this.value)"></label>';
+    for(let i=0;i<3;i++){
+     const options=['',...opponents.filter(x=>!draft.opponents.includes(x)||x===draft.opponents[i])];
+     card+='<div class="row"><label>Game '+(i+1)+' opponent <select onchange="HockeyCloud.changeDraft('+keyLiteral+',&#39;opponents&#39;,'+i+',this.value)">'+options.map(v=>'<option value="'+e(v)+'" '+(draft.opponents[i]===v?'selected':'')+'>'+(v?e(v):'Select opponent')+'</option>').join('')+'</select></label>';
+     card+='<label>Rink <input placeholder="Rink / ice section" value="'+e(draft.rink[i])+'" onchange="HockeyCloud.changeDraft('+keyLiteral+',&#39;rink&#39;,'+i+',this.value)"></label></div>';
+    }
+    const complete=draft.opponents.every(Boolean);
+    card+='<p><strong>Proposed lineup (not saved)</strong></p>';
+    for(let i=0;i<3;i++)card+='<p>Game '+(i+1)+': '+e(draft.opponents[i]||'Opponent not selected')+' · '+(i===0?'Event start':('+'+i*draft.interval+' min'))+(draft.rink[i]?' · '+e(draft.rink[i]):'')+'</p>';
+    card+='<p class="muted">'+(complete?'All three opponents selected.':'Select all three opponents to complete the preview.')+' This is only a test; it does not change the team schedule.</p></details>';
+    return card;
+   }).join('');
    if(selected.length>35)out+='<p class="muted">Showing first 35 of '+selected.length+' events.</p>';
   }
   return out+'</section>';
@@ -184,6 +232,6 @@ const HockeyCloud=(()=>{
  function canEdit(section){return !team||(!!base&&permitted(section))}
  function retry(){paused=false;drain()}
  window.addEventListener('online',()=>drain());
- return {init,onSave,canEdit,panel,previewCalendar,toggleCalendarAll,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,initializeTeam,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
+ return {init,onSave,canEdit,panel,previewCalendar,toggleCalendarAll,changeDraft,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,initializeTeam,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
 })();
 window.HockeyCloud=HockeyCloud;
