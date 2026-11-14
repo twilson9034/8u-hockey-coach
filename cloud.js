@@ -15,8 +15,8 @@ const HockeyCloud=(()=>{
   localStorage.setItem(localKey(team.id),JSON.stringify(data));
   if(!base)return;
   for(const k of sections)if(changed(data,base,k)){
-   if(!pending.some(p=>p.section===k))pending.push({section:k,data:clone(data)});
-   else pending.find(p=>p.section===k).data=clone(data);
+   const start=busy?1:0;const existing=pending.slice(start).find(p=>p.section===k);
+   if(existing)existing.data=clone(data);else pending.push({section:k,data:clone(data)});
   }
   base=clone(data);
   if(pending.length){say(navigator.onLine?'Unsynced changes':'Offline · changes pending');drain()}
