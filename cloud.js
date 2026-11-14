@@ -90,6 +90,7 @@ const HockeyCloud=(()=>{
   if(channel)await client.removeChannel(channel);
   channel=client.channel('hockey-team-'+id).on('postgres_changes',{event:'UPDATE',schema:'public',table:'team_data',filter:'team_id=eq.'+id},()=>refresh()).subscribe();
   render();
+  queueMicrotask(()=>{if(team?.id===id&&!calendarAttempted)previewCalendar()});
  }
  async function refresh(){
   if(!team||pending.length||busy||paused)return;
@@ -254,6 +255,9 @@ const HockeyCloud=(()=>{
   }
   return out+'</section>';
  }
+ function nextCalendarEvent(){
+  const now=Date.now();return calendarEvents.filter(x=>!(/practice/i.test(x.title||''))&&String(x.status||'').toUpperCase()!=='CANCELLED'&&[x.title,x.notes].join(' ').toLowerCase().includes(String(team?.name||'').toLowerCase())).map(x=>{const m=String(x.start||'').match(/^(\\d{4})(\\d{2})(\\d{2})T(\\d{2})(\\d{2})(\\d{2})?Z$/);return m?{...x,iso:m[1]+'-'+m[2]+'-'+m[3]+'T'+m[4]+':'+m[5]+':'+(m[6]||'00')+'Z'}:null}).filter(x=>x&&Date.parse(x.iso)+3600000>=now).sort((a,b)=>Date.parse(a.iso)-Date.parse(b.iso))[0]||null;
+ }
  function calendarPage(){
   if(!team)return '<section class="card"><h2>Calendar</h2><p class="muted">Select a team workspace in Settings to view its Crossbar calendar.</p></section>';
   if(!calendarAttempted&&!calendarBusy)queueMicrotask(()=>{if(team&&!calendarAttempted)previewCalendar()});
@@ -286,6 +290,6 @@ const HockeyCloud=(()=>{
  function canEdit(section){return !team||(!!base&&permitted(section))}
  function retry(){paused=false;drain()}
  window.addEventListener('online',()=>drain());
- return {init,onSave,canEdit,panel,calendarPage,saveCalendarUrl,previewCalendar,toggleCalendarAll,changeDraft,saveCalendarDraft,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,initializeTeam,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
+ return {init,onSave,canEdit,panel,calendarPage,saveCalendarUrl,previewCalendar,toggleCalendarAll,changeDraft,saveCalendarDraft,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,initializeTeam,invite,acceptInvite,setPermission,retry,get nextCalendarEvent(){return nextCalendarEvent()},get team(){return team},get pending(){return pending.length}};
 })();
 window.HockeyCloud=HockeyCloud;
