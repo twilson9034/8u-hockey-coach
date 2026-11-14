@@ -164,16 +164,26 @@ const HockeyCloud=(()=>{
   const date=new Date(iso);
   return Number.isNaN(date.valueOf())?raw:new Intl.DateTimeFormat('en-US',{timeZone:'America/Anchorage',weekday:'short',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(date);
  }
+ function titleOpponent(event){
+  const title=String(event.title||'').trim(),name=String(team?.name||'').trim();
+  let match=title.match(/\b(?:vs\.?|versus|v\.)\s+(.+)$/i);
+  if(match)return match[1].trim();
+  if(name){
+   const escaped=name.replace(/[^a-zA-Z0-9 ]/g,'');
+   match=title.match(new RegExp('^'+escaped+'\\s*[-–—:]\\s*(.+)$','i'));
+   if(match&&!/practice/i.test(match[1]))return match[1].trim();
+  }
+  return '';
+ }
  function candidateOpponents(event){
-  const title=String(event.title||''),notes=String(event.notes||'');
-  const match=title.match(/\bvs\.?\s+(.+)$/i);
+  const notes=String(event.notes||''),first=titleOpponent(event);
   const listed=notes.match(/(?:^|\n)\s*w\/\s*([^\n]+)/i);
-  const names=[...(match?[match[1].trim()]:[]),...(listed?listed[1].split(',').map(v=>v.trim()):[])].filter(Boolean);
+  const names=[first,...(listed?listed[1].split(',').map(v=>v.trim()):[])].filter(Boolean);
   return [...new Map(names.map(n=>[n.toLowerCase(),n])).values()];
  }
  function draftFor(event){
   const key=event.uid||event.start+'|'+event.title;
-  if(!gameDrafts[key]){const first=String(event.title||'').match(/\bvs\.?\s+(.+)$/i);gameDrafts[key]={opponents:[first?first[1].trim():'','',''],interval:20,rink:['','','']};}
+  if(!gameDrafts[key])gameDrafts[key]={opponents:[titleOpponent(event),'',''],interval:20,rink:['','','']};
   return {key,draft:gameDrafts[key]};
  }
  function changeDraft(key,field,index,value){
@@ -185,12 +195,12 @@ const HockeyCloud=(()=>{
    preview.innerHTML=draft.opponents.map((name,i)=>'<p>Game '+(i+1)+': '+e(name||'Opponent not selected')+' · '+(i===0?'Event start':'+'+(i*draft.interval)+' min')+(draft.rink[i]?' · '+e(draft.rink[i]):'')+'</p>').join('');
   }
   const saveButton=document.querySelector('[data-calendar-save="'+encodeURIComponent(key)+'"]');
-  if(saveButton)saveButton.disabled=!draft.opponents.every(Boolean)||!permitted('settings');
+  if(saveButton)saveButton.disabled=!permitted('settings');
  }
  function saveCalendarDraft(key){
   const event=calendarEvents.find(x=>(x.uid||x.start+'|'+x.title)===key),draft=gameDrafts[key];
   if(!event||!draft)return alert('Calendar event not found. Refresh the feed.');
-  if(draft.opponents.some(x=>!x))return alert('Choose all three opponents before saving.');
+  if(draft.opponents.some(x=>!x))return alert('Choose an opponent for each game, including Game 1 if the title did not identify it.');
   const start=String(event.start||'').trim();
   let iso='';
   const basic=start.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?)?(Z)?$/);
@@ -237,7 +247,7 @@ const HockeyCloud=(()=>{
     const complete=draft.opponents.every(Boolean);
     card+='<p><strong>Proposed lineup (not saved)</strong></p>';
     card+='<div data-calendar-preview="'+encodeURIComponent(key)+'">';for(let i=0;i<3;i++)card+='<p>Game '+(i+1)+': '+e(draft.opponents[i]||'Opponent not selected')+' · '+(i===0?'Event start':('+'+i*draft.interval+' min'))+(draft.rink[i]?' · '+e(draft.rink[i]):'')+'</p>';card+='</div>';
-    card+='<p class="muted">'+(complete?'All three opponents selected.':'Select all three opponents to complete the preview.')+'</p><button class="primary" '+(!complete||!permitted('settings')?'disabled':'')+' onclick="HockeyCloud.saveCalendarDraft('+keyLiteral+')">Save to team Game Day</button></details>';
+    card+='<p class="muted">'+(complete?'All three opponents selected.':'Select all three opponents to complete the preview.')+'</p><button class="primary" '+(!permitted('settings')?'disabled':'')+' onclick="HockeyCloud.saveCalendarDraft('+keyLiteral+')">Save to team Game Day</button></details>';
     return card;
    }).join('');
    if(selected.length>35)out+='<p class="muted">Showing first 35 of '+selected.length+' events.</p>';
