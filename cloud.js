@@ -50,7 +50,7 @@ const HockeyCloud=(()=>{
    client.auth.onAuthStateChange((_event,session)=>{const old=user?.id;user=session?.user||null;if(old!==user?.id){if(!user&&team){team=null;window.hockeyCloudSetData(null,null)}setTimeout(listTeams,0)}});
    const {data}=await client.auth.getUser();user=data?.user||null;ready=true;
    if(user){await listTeams();const last=localStorage.getItem('hockey-coach-last-team');if(last&&teams.some(t=>t.id===last))await selectTeam(last)}
-   say(user?'Signed in · select a team':'Local only · sign in to sync');
+   if(!team)say(user?'Signed in · select a team':'Local only · sign in to sync');
   }catch(err){say('Cloud unavailable · local mode works offline')}
  }
  async function signIn(){
