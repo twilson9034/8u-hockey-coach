@@ -305,24 +305,38 @@ const HockeyCloud=(()=>{
   }
   html+='</div><div style="background:'+e(b.primary||'#15374d')+';color:white;padding:12px;border-radius:9px"><strong>'+e(team.name)+'</strong> <span style="background:'+e(b.secondary||'#087c97')+';padding:5px 9px;border-radius:6px">Sample button</span></div>';
   html+='<p>Team logo '+(b.logo?'<img alt="Team logo preview" src="'+e(b.logo)+'" style="width:64px;height:64px;object-fit:contain;vertical-align:middle">':'(not uploaded)')+'</p>';
-  html+='<input type="file" accept="image/png,image/jpeg,image/webp" '+(disabled?'disabled':'')+' onchange="HockeyCloud.uploadBrandLogo(this.files[0])"><button '+(disabled?'disabled':'')+' onclick="HockeyCloud.resetBrand()">Reset branding</button></section>';
+  html+='<input type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" '+(disabled?'disabled':'')+' onchange="HockeyCloud.uploadBrandLogo(this.files[0])"><p id="logo-upload-status" class="muted" aria-live="polite"></p><button '+(disabled?'disabled':'')+' onclick="HockeyCloud.resetBrand()">Reset branding</button></section>';
   return html;
  }
  function setBrandColor(key,value){window.hockeyBrandSet?.(key,value)}
  async function uploadBrandLogo(file){
-  if(!file)return;if(file.size>3000000)return alert('Choose an image smaller than 3 MB.');
-  if(!['image/png','image/jpeg','image/webp'].includes(file.type))return alert('Choose a PNG, JPEG or WebP image.');
+  if(!file)return;
+  if(file.size>12000000)return alert('Choose an image smaller than 12 MB.');
+  const allowed=['image/png','image/jpeg','image/webp','image/heic','image/heif'];
+  if(file.type&&!allowed.includes(file.type))return alert('Choose a PNG, JPEG, WebP or iPhone photo.');
+  const status=document.getElementById('logo-upload-status');
+  if(status)status.textContent='Processing image…';
+  let url='';
   try{
-   const img=new Image(),url=URL.createObjectURL(file);
-   await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url});
-   URL.revokeObjectURL(url);
-   const canvas=document.createElement('canvas');canvas.width=128;canvas.height=128;
-   const ctx=canvas.getContext('2d'),scale=Math.min(128/img.width,128/img.height),w=img.width*scale,h=img.height*scale;
-   ctx.clearRect(0,0,128,128);ctx.drawImage(img,(128-w)/2,(128-h)/2,w,h);
-   const encoded=canvas.toDataURL('image/webp',0.75);
-   if(encoded.length>85000)return alert('Image could not be compressed enough.');
-   window.hockeyBrandSet?.('brandLogo',encoded);
-  }catch(err){alert('Could not read the logo image.')}
+   const data=await new Promise((resolve,reject)=>{
+    const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('File could not be read'));reader.readAsDataURL(file);
+   });
+   const img=new Image();
+   await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error('Image could not be decoded'));img.src=data});
+   if(!img.naturalWidth||!img.naturalHeight)throw new Error('Image has no dimensions');
+   const canvas=document.createElement('canvas');canvas.width=160;canvas.height=160;
+   const ctx=canvas.getContext('2d');if(!ctx)throw new Error('Image processing is unavailable');
+   const scale=Math.min(160/img.naturalWidth,160/img.naturalHeight),w=img.naturalWidth*scale,h=img.naturalHeight*scale;
+   ctx.clearRect(0,0,160,160);ctx.drawImage(img,(160-w)/2,(160-h)/2,w,h);
+   let encoded=canvas.toDataURL('image/png');
+   if(encoded.length>85000)encoded=canvas.toDataURL('image/jpeg',0.78);
+   if(encoded.length>85000)throw new Error('Image is too detailed to fit the team logo storage limit');
+   const result=window.hockeyBrandSet?.('brandLogo',encoded);
+   if(result!==true)throw new Error('Logo could not be saved to team settings');
+  }catch(err){
+   if(status)status.textContent='Upload failed: '+(err?.message||'Unknown error');
+   alert('Logo upload failed: '+(err?.message||'Unknown error'));
+  }finally{if(url)URL.revokeObjectURL(url)}
  }
  function resetBrand(){
   if(!confirm('Reset this team logo and colors?'))return;
