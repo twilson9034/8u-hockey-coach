@@ -83,7 +83,7 @@ const HockeyCloud=(()=>{
   const selected=teams.find(t=>t.id===id);if(!selected)return alert('Team not available');
   const {data,error}=await client.from('team_data').select('data,version,imported_at').eq('team_id',id).single();
   if(error)return alert(error.message);
-  team=selected;localStorage.setItem('hockey-coach-last-team',id);version=Number(data.version);pending=[];paused=false;
+  team=selected;calendarEvents=[];calendarAttempted=false;calendarFetchedAt=0;localStorage.setItem('hockey-coach-last-team',id);version=Number(data.version);pending=[];paused=false;
   if(data.imported_at){
    base=clone(data.data);window.hockeyCloudSetData(data.data,id);say('Synced');
   }else{base=null;window.hockeyCloudSetData(null,id);say('Team awaits administrator import')}
@@ -139,10 +139,10 @@ const HockeyCloud=(()=>{
   if(error)return alert(error.message);
   team.assistant_permissions=perms;render();
  }
- let calendarEvents=[],calendarError='',calendarBusy=false,calendarShowAll=false,calendarFetchedAt=0;
+ let calendarEvents=[],calendarError='',calendarBusy=false,calendarShowAll=false,calendarFetchedAt=0,calendarAttempted=false;
  async function previewCalendar(){
   if(!client||!team)return alert('Select a team first.');
-  calendarBusy=true;calendarError='';render();
+  calendarBusy=true;calendarAttempted=true;calendarError='';render();
   try{
    const {data,error}=await client.functions.invoke('crossbar-preview',{body:{teamId:team.id}});
    if(error)throw Error(data?.error||error.message);
@@ -256,7 +256,7 @@ const HockeyCloud=(()=>{
  }
  function calendarPage(){
   if(!team)return '<section class="card"><h2>Calendar</h2><p class="muted">Select a team workspace in Settings to view its Crossbar calendar.</p></section>';
-  if(!calendarFetchedAt&&!calendarBusy)queueMicrotask(()=>{if(team&&!calendarFetchedAt)previewCalendar()});
+  if(!calendarAttempted&&!calendarBusy)queueMicrotask(()=>{if(team&&!calendarAttempted)previewCalendar()});
   return calendarPanel();
  }
  function calendarSettingsPanel(){return '<section class="card"><h2>Calendar integration</h2><p class="muted">Crossbar calendar connection and refresh settings. View events and confirm opponents from the Calendar menu.</p><p>Source: Crossbar iCalendar</p><p class="muted">Currently using the original test subscription. Team-specific URL configuration is being added.</p></section>'}
