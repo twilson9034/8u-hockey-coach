@@ -226,12 +226,31 @@ const HockeyCloud=(()=>{
  }
  function calendarMonthPanel(){
   const now=new Date(),month=new Date(now.getFullYear(),now.getMonth()+calendarMonthOffset,1),first=month.getDay(),days=new Date(month.getFullYear(),month.getMonth()+1,0).getDate();
-  const fmt=new Intl.DateTimeFormat('en-US',{timeZone:'America/Anchorage',year:'numeric',month:'2-digit',day:'2-digit'});
   const counts={};
+  const dateKey=event=>{
+   const raw=String(event.start||'').trim();
+   const basic=raw.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?/);
+   if(basic){
+    if(basic[7]&&basic[4]){
+     const iso=basic[1]+'-'+basic[2]+'-'+basic[3]+'T'+basic[4]+':'+basic[5]+':'+(basic[6]||'00')+'Z';
+     const date=new Date(iso);
+     if(!Number.isNaN(date.getTime())){
+      const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Anchorage',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
+      const part=type=>parts.find(p=>p.type===type)?.value||'';
+      return part('year')+'-'+part('month')+'-'+part('day');
+     }
+    }
+    return basic[1]+'-'+basic[2]+'-'+basic[3];
+   }
+   const date=new Date(raw);
+   if(Number.isNaN(date.getTime()))return '';
+   const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Anchorage',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
+   const part=type=>parts.find(p=>p.type===type)?.value||'';
+   return part('year')+'-'+part('month')+'-'+part('day');
+  };
   for(const event of calendarEvents){
-   const raw=String(event.start||'');
-   const m=raw.match(/^(\\d{4})(\\d{2})(\\d{2})/);
-   if(m){const key=m[1]+'-'+m[2]+'-'+m[3];counts[key]=(counts[key]||0)+1}
+   if(String(event.status||'').toUpperCase()==='CANCELLED')continue;
+   const key=dateKey(event);if(key)counts[key]=(counts[key]||0)+1;
   }
   let html='<div class="row"><button onclick="HockeyCloud.moveCalendarMonth(-1)">Previous</button><strong>'+e(month.toLocaleString('en-US',{month:'long',year:'numeric'}))+'</strong><button onclick="HockeyCloud.moveCalendarMonth(1)">Next</button></div>';
   html+='<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">';
@@ -241,7 +260,11 @@ const HockeyCloud=(()=>{
    const key=month.getFullYear()+'-'+String(month.getMonth()+1).padStart(2,'0')+'-'+String(day).padStart(2,'0'),count=counts[key]||0;
    html+='<div style="text-align:center;min-height:43px;padding:5px 1px;border-radius:7px;background:'+(count?'#e0f0f4':'#f6f8f9')+'"><strong>'+day+'</strong>'+(count?'<div style="font-size:11px;color:#087c97">'+count+' event'+(count===1?'':'s')+'</div>':'')+'</div>';
   }
-  return html+'</div><p class="muted">Calendar markers show Crossbar events. Switch to Agenda to inspect and confirm games.</p>';
+  html+='</div>';
+  if(!calendarEvents.length)html+='<p class="muted">No calendar events loaded. Tap Refresh Crossbar schedule.</p>';
+  else if(!Object.keys(counts).some(key=>key.startsWith(month.getFullYear()+'-'+String(month.getMonth()+1).padStart(2,'0')+'-')))html+='<p class="muted">No Crossbar events found for this month ('+calendarEvents.length+' events loaded overall).</p>';
+  else html+='<p class="muted">Highlighted dates contain Crossbar events. Switch to Agenda to inspect and confirm games.</p>';
+  return html;
  }
  function setCalendarView(view){calendarView=view;render()}
  function moveCalendarMonth(delta){calendarMonthOffset+=delta;render()}
