@@ -136,8 +136,9 @@ const HockeyCloud=(()=>{
   }
   return html+'</section>';
  }
+ function canEdit(section){return !team||(!!base&&permitted(section))}
  function retry(){paused=false;drain()}
  window.addEventListener('online',()=>drain());
- return {init,onSave,panel,signIn,signOut,createTeam,selectTeam,importLocal,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
+ return {init,onSave,canEdit,panel,signIn,signOut,createTeam,selectTeam,importLocal,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
 })();
 window.HockeyCloud=HockeyCloud;
