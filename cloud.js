@@ -167,7 +167,7 @@ const HockeyCloud=(()=>{
  }
  function titleOpponent(event){
   const title=String(event.title||'').trim(),name=String(team?.name||'').trim();
-  let match=title.match(/\b(?:vs\.?|versus|v\.)\s+(.+)$/i);
+  let match=title.match(/(?:\b(?:vs\.?|versus|v\.)\s+|@\s*)(.+)$/i);
   if(match)return match[1].trim();
   if(name){
    const escaped=name.replace(/[^a-zA-Z0-9 ]/g,'');
