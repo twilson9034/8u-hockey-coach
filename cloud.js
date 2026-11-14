@@ -223,7 +223,7 @@ const HockeyCloud=(()=>{
   if(ok)say('Three-game schedule saved · see Game Day');
  }
  function calendarPanel(){
-  let out='<section class="card"><h2>Crossbar calendar · test preview</h2><p class="muted">Read-only test. Dates use Alaska time when Crossbar supplies UTC. Choose opponents and rink assignments to preview three games; nothing is saved to Game Day.</p><button onclick="HockeyCloud.previewCalendar()" '+(calendarBusy?'disabled':'')+'>'+(calendarBusy?'Loading calendar…':'Refresh Crossbar schedule')+'</button>';
+  let out='<section class="card"><h2>Crossbar calendar · test preview</h2><p class="muted">Crossbar events. Select opponents and rink assignments, then save the confirmed games to Game Day.</p><button onclick="HockeyCloud.previewCalendar()" '+(calendarBusy?'disabled':'')+'>'+(calendarBusy?'Loading calendar…':'Refresh Crossbar schedule')+'</button>';
   if(calendarError)out+='<p class="muted">'+e(calendarError)+'</p>';
   if(calendarEvents.length){
    const relevant=calendarEvents.filter(x=>[x.title,x.notes].join(' ').toLowerCase().includes(team.name.toLowerCase()));
@@ -259,7 +259,15 @@ const HockeyCloud=(()=>{
   if(!calendarAttempted&&!calendarBusy)queueMicrotask(()=>{if(team&&!calendarAttempted)previewCalendar()});
   return calendarPanel();
  }
- function calendarSettingsPanel(){return '<section class="card"><h2>Calendar integration</h2><p class="muted">Crossbar calendar connection and refresh settings. View events and confirm opponents from the Calendar menu.</p><p>Source: Crossbar iCalendar</p><p class="muted">Currently using the original test subscription. Team-specific URL configuration is being added.</p></section>'}
+ function calendarSettingsPanel(){
+  const config=window.hockeyCalendarGetConfig?.()||{},url=config.url||'';
+  return '<section class="card"><h2>Calendar integration</h2><p class="muted">Crossbar subscription for this team. Calendar events and opponent confirmation are in the Calendar menu.</p><label>Crossbar iCalendar URL <input id="crossbar-url" type="url" value="'+e(url)+'" placeholder="https://www.accounts.crossbar.org/calendar/ical/..." '+(!permitted('settings')?'disabled':'')+'></label><div class="row"><button onclick="HockeyCloud.saveCalendarUrl()" '+(!permitted('settings')?'disabled':'')+'>Save calendar URL</button><button onclick="HockeyCloud.previewCalendar()">Test connection / refresh</button></div><p class="muted">'+(url?'Team calendar URL saved.':'Using the original Crossbar test feed until a team URL is saved.')+'</p></section>';
+ }
+ function saveCalendarUrl(){
+  const input=document.getElementById('crossbar-url');
+  if(!input)return;
+  if(window.hockeyCalendarSetUrl(input.value)){calendarEvents=[];calendarAttempted=false;calendarFetchedAt=0;say('Calendar URL saved · open Calendar to refresh')}
+ }
  function panel(){
   let html='<section class="card"><h2>Cloud & teams</h2><p id="cloud-status" class="muted">'+e(status)+'</p>';
   if(!ready)return html+'<p>Connecting to Supabase… Local features still work.</p></section>';
@@ -278,6 +286,6 @@ const HockeyCloud=(()=>{
  function canEdit(section){return !team||(!!base&&permitted(section))}
  function retry(){paused=false;drain()}
  window.addEventListener('online',()=>drain());
- return {init,onSave,canEdit,panel,calendarPage,previewCalendar,toggleCalendarAll,changeDraft,saveCalendarDraft,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,initializeTeam,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
+ return {init,onSave,canEdit,panel,calendarPage,saveCalendarUrl,previewCalendar,toggleCalendarAll,changeDraft,saveCalendarDraft,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,initializeTeam,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
 })();
 window.HockeyCloud=HockeyCloud;
