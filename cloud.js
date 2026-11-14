@@ -100,12 +100,20 @@ const HockeyCloud=(()=>{
  async function importLocal(){
   if(team?.role!=='admin'||base)return alert('Only administrators can import into an empty team.');
   const raw=localStorage.getItem('hockey-8u-v1');
-  if(!raw)return alert('No existing local data to import.');
+  if(!raw)return alert('No saved local data found. Use Initialize new team instead.');
   let source;try{source=migrateData(JSON.parse(raw))}catch(err){return alert('Local data is invalid: '+err.message)}
   if(!confirm('Import your LOCAL roster ('+source.players.length+' players), history ('+source.history.length+' days), and settings to '+team.name+'? This is a one-time operation. Export a JSON backup first from Local mode.'))return;
   const {data,error}=await client.rpc('save_hockey_team_data',{p_team:team.id,p_data:source,p_expected_version:version,p_section:null,p_is_import:true});
   if(error)return alert(error.message);
   version=Number(data);base=clone(source);window.hockeyCloudSetData(source,team.id);say('Imported and synced');render();
+ }
+ async function initializeTeam(){
+  if(team?.role!=='admin'||base)return alert('Only administrators can initialize an empty team.');
+  if(!confirm('Initialize '+team.name+' with a blank starter roster and default settings? This will NOT import or change your local data.'))return;
+  const source=migrateData(fresh());
+  const {data,error}=await client.rpc('save_hockey_team_data',{p_team:team.id,p_data:source,p_expected_version:version,p_section:null,p_is_import:true});
+  if(error)return alert(error.message);
+  version=Number(data);base=clone(source);window.hockeyCloudSetData(source,team.id);say('Team initialized');render();
  }
  async function invite(){
   if(team?.role!=='admin')return;
@@ -139,7 +147,7 @@ const HockeyCloud=(()=>{
   if(team){
    html+='<h3>'+e(team.name)+'</h3><p class="muted">Role: '+e(team.role)+' · '+(base?'Cloud data loaded':'No cloud data imported yet')+'</p>';
    if(team.role==='admin'){
-    if(!base)html+='<button class="primary" onclick="HockeyCloud.importLocal()">Import local data to this team</button><p class="muted">Switch to Local only and export JSON from History before importing.</p>';
+    if(!base)html+='<div class="row"><button class="primary" onclick="HockeyCloud.importLocal()">Import local data</button><button onclick="HockeyCloud.initializeTeam()">Initialize new team</button></div><p class="muted">Your administrator access is active. Initialize this team or import a local backup to unlock roster and app settings. Export JSON from Local only before importing.</p>';
     html+='<div class="row"><button onclick="HockeyCloud.invite()">Invite assistant coach</button></div><h3>Assistant coach permissions</h3>'+sections.map(k=>'<label class="pill"><input type="checkbox" '+(team.assistant_permissions?.[k]?'checked':'')+' onchange="HockeyCloud.setPermission(\''+k+'\',this.checked)"> '+e(k)+'</label>').join('');
    }
    if(paused)html+='<p class="muted">Sync paused. Export a backup before resolving conflicts.</p><button onclick="HockeyCloud.retry()">Retry sync</button>';
@@ -149,6 +157,6 @@ const HockeyCloud=(()=>{
  function canEdit(section){return !team||(!!base&&permitted(section))}
  function retry(){paused=false;drain()}
  window.addEventListener('online',()=>drain());
- return {init,onSave,canEdit,panel,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
+ return {init,onSave,canEdit,panel,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,initializeTeam,invite,acceptInvite,setPermission,retry,get team(){return team},get pending(){return pending.length}};
 })();
 window.HockeyCloud=HockeyCloud;
