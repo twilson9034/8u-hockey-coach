@@ -272,6 +272,38 @@ const HockeyCloud=(()=>{
   if(!input)return;
   if(window.hockeyCalendarSetUrl(input.value)){calendarEvents=[];calendarAttempted=false;calendarFetchedAt=0;say('Calendar URL saved · open Calendar to refresh')}
  }
+ function brandingPanel(){
+  if(!team)return '';
+  const b=window.hockeyBrandGet?.()||{},disabled=!permitted('settings');
+  let html='<section class="card"><h2>Team branding</h2><p class="muted">Team colors and logo synchronize across coaches.</p><div class="row">';
+  for(const [key,label,value] of [['brandPrimary','Header',b.primary],['brandSecondary','Buttons',b.secondary],['brandAccent','Highlights',b.accent]]){
+   html+='<label>'+label+' <input type="color" value="'+e(value||'#15374d')+'" '+(disabled?'disabled':'')+' onchange="HockeyCloud.setBrandColor(&#39;'+key+'&#39;,this.value)"></label>';
+  }
+  html+='</div><div style="background:'+e(b.primary||'#15374d')+';color:white;padding:12px;border-radius:9px"><strong>'+e(team.name)+'</strong> <span style="background:'+e(b.secondary||'#087c97')+';padding:5px 9px;border-radius:6px">Sample button</span></div>';
+  html+='<p>Team logo '+(b.logo?'<img alt="Team logo preview" src="'+e(b.logo)+'" style="width:64px;height:64px;object-fit:contain;vertical-align:middle">':'(not uploaded)')+'</p>';
+  html+='<input type="file" accept="image/png,image/jpeg,image/webp" '+(disabled?'disabled':'')+' onchange="HockeyCloud.uploadBrandLogo(this.files[0])"><button '+(disabled?'disabled':'')+' onclick="HockeyCloud.resetBrand()">Reset branding</button></section>';
+  return html;
+ }
+ function setBrandColor(key,value){window.hockeyBrandSet?.(key,value)}
+ async function uploadBrandLogo(file){
+  if(!file)return;if(file.size>3000000)return alert('Choose an image smaller than 3 MB.');
+  if(!['image/png','image/jpeg','image/webp'].includes(file.type))return alert('Choose a PNG, JPEG or WebP image.');
+  try{
+   const img=new Image(),url=URL.createObjectURL(file);
+   await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url});
+   URL.revokeObjectURL(url);
+   const canvas=document.createElement('canvas');canvas.width=128;canvas.height=128;
+   const ctx=canvas.getContext('2d'),scale=Math.min(128/img.width,128/img.height),w=img.width*scale,h=img.height*scale;
+   ctx.clearRect(0,0,128,128);ctx.drawImage(img,(128-w)/2,(128-h)/2,w,h);
+   const encoded=canvas.toDataURL('image/webp',0.75);
+   if(encoded.length>85000)return alert('Image could not be compressed enough.');
+   window.hockeyBrandSet?.('brandLogo',encoded);
+  }catch(err){alert('Could not read the logo image.')}
+ }
+ function resetBrand(){
+  if(!confirm('Reset this team logo and colors?'))return;
+  for(const [key,value] of [['brandPrimary','#15374d'],['brandSecondary','#087c97'],['brandAccent','#dcebf1'],['brandLogo','']])window.hockeyBrandSet?.(key,value);
+ }
  function panel(){
   let html='<section class="card"><h2>Cloud & teams</h2><p id="cloud-status" class="muted">'+e(status)+'</p>';
   if(!ready)return html+'<p>Connecting to Supabase… Local features still work.</p></section>';
@@ -285,11 +317,11 @@ const HockeyCloud=(()=>{
    }
    if(paused)html+='<p class="muted">Sync paused. Export a backup before resolving conflicts.</p><button onclick="HockeyCloud.retry()">Retry sync</button>';
   }
-  return html+'</section>'+(team?calendarSettingsPanel():'');
+  return html+'</section>'+(team?calendarSettingsPanel()+brandingPanel():'');
  }
  function canEdit(section){return !team||(!!base&&permitted(section))}
  function retry(){paused=false;drain()}
  window.addEventListener('online',()=>drain());
- return {init,onSave,canEdit,panel,calendarPage,saveCalendarUrl,previewCalendar,toggleCalendarAll,changeDraft,saveCalendarDraft,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,initializeTeam,invite,acceptInvite,setPermission,retry,get nextCalendarEvent(){return nextCalendarEvent()},get team(){return team},get pending(){return pending.length}};
+ return {init,onSave,canEdit,panel,calendarPage,setBrandColor,uploadBrandLogo,resetBrand,saveCalendarUrl,previewCalendar,toggleCalendarAll,changeDraft,saveCalendarDraft,signIn,verifyCode,signOut,createTeam,selectTeam,importLocal,initializeTeam,invite,acceptInvite,setPermission,retry,get nextCalendarEvent(){return nextCalendarEvent()},get team(){return team},get pending(){return pending.length}};
 })();
 window.HockeyCloud=HockeyCloud;
